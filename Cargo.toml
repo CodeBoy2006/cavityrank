@@ -1,0 +1,31 @@
+[package]
+name = "cavity-bit-filter"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.92"
+license = "MIT"
+description = "Packed Cuckoo Filter with implicit CavityBit and CavityRank-4 routing"
+readme = "README.md"
+publish = false
+include = [
+    "/src/**",
+    "/Cargo.toml",
+    "/Cargo.lock",
+    "/README.md",
+    "/README.zh-CN.md",
+    "/LICENSE",
+    "/CITATION.cff",
+    "/PROVENANCE.md",
+    "/SOURCE_SHA256SUMS",
+]
+
+[[bin]]
+name = "cavity-bench"
+path = "src/main.rs"
+
+[profile.release]
+codegen-units = 1
+lto = "thin"
+
+[lints.rust]
+unsafe_code = "forbid"

@@ -1,0 +1,14 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata below."
+title: "CavityRank: Zero-Extra-Byte Residual Routing for Cuckoo Filters"
+type: software
+authors:
+  - family-names: Guan
+    given-names: Yongjie
+    orcid: "https://orcid.org/0009-0002-1071-2741"
+version: 0.1.0
+date-released: 2026-08-14
+license: MIT
+abstract: >-
+  A dependency-free Rust research implementation of CavityBit and CavityRank,
+  which encode relocation guidance in query-equivalent fingerprint order.
