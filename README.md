@@ -1,33 +1,26 @@
 # CavityRank
 
-[简体中文](README.zh-CN.md)
+[![Paper](https://img.shields.io/badge/arXiv-2608.13970-b31b1b.svg)](https://arxiv.org/abs/2608.13970)
 
-CavityRank is a dependency-free Rust research implementation of a packed
-four-slot Cuckoo Filter. It stores relocation guidance in query-equivalent
-fingerprint order, adding no persistent routing bytes per bucket.
+[Chinese translation](README.zh-CN.md)
 
-This release is single-threaded research software, not a concurrent production
-library. The accompanying arXiv preprint will be linked here after it receives
-an identifier.
+CavityRank is a dependency-free, single-threaded Rust implementation of the
+packed four-slot Cuckoo Filter described in
+[CavityRank: Zero-Extra-Byte Residual Routing for Cuckoo Filters](https://arxiv.org/abs/2608.13970).
+It stores relocation guidance in query-equivalent fingerprint order, adding no
+routing bytes per bucket and leaving the two-bucket lookup unchanged.
 
-## Core idea
+## How it works
 
-Each bucket stores four nonzero `u16` fingerprints in one `u64`. Pair-CavityBit
-uses the orientation of the first slot pair; CavityRank uses two pair
-orientations to encode a truncated residual rank from 1 to 4:
+Each bucket packs four nonzero `u16` fingerprints into one `u64`. The two slot
+pair orientations encode a residual rank from 1 to 4:
 
 ```text
-let cavity_bit_rank = 1 + u8::from(slot1 < slot0);
-let cavity_rank = 1 + u8::from(slot1 < slot0) + 2 * u8::from(slot3 < slot2);
+let rank = 1 + u8::from(slot1 < slot0) + 2 * u8::from(slot3 < slot2);
 ```
 
-Lookup remains unchanged: it compares the requested fingerprint with the eight
-fingerprints in the two candidate buckets and never decodes the rank.
-
-During relocation, CavityRank scores each resident by its alternate bucket,
-evicts a minimum-rank edge, removes that victim edge from the residual state,
-adds the incoming predecessor edge, and re-encodes the realized rank in the
-updated bucket.
+Ranks guide relocation only. Lookup still compares the requested fingerprint
+with the eight fingerprints in its two candidate buckets.
 
 ## Quick start
 
@@ -46,49 +39,35 @@ fn main() -> Result<(), cavity_bit_filter::ConfigError> {
 
     let result = filter.insert(123);
     if !result.inserted {
-        // A failed bounded non-BFS insertion leaves the filter unusable.
+        // A failed bounded insertion may leave the filter unusable.
         assert!(!result.filter_usable);
         return Ok(());
     }
+
     assert!(filter.contains(123));
     Ok(())
 }
 ```
 
-The main routing policies are:
-
-- `CavityBit`: two-level implicit residual routing.
-- `CavityRank4`: the four-level core method.
-- `DenseCavityRank4`: Rotor until 96% load, then a three-pass full-table
-  preparation before using CavityRank.
-- `CavityRank4Path`: the core method with an optional insertion-local path
-  sketch for tail experiments.
-
-The crate also contains the research baselines and the `cavity-bench` experiment
-CLI used to compare them under a shared hash, bucket layout, and accounting
-contract.
+`CavityRank4` is the paper's core policy. The crate also includes the two-level
+`CavityBit`, high-load `DenseCavityRank4`, experimental `CavityRank4Path`,
+research baselines, and the `cavity-bench` CLI.
 
 ## Important semantics
 
 - `bucket_count` must be a power of two and at least two.
-- Keys are `u64`; hash arbitrary application data before calling this API.
-- The filter has false positives. It is not an authoritative set.
-- Call `remove` only for a key known to be present. Removing a false positive
-  may delete a shared fingerprint.
-- A failed bounded non-BFS insertion may leave the filter unusable. Check
-  `InsertStats::filter_usable` and discard or rebuild the instance when false.
-- Deletion does not run backward residual-rank repair.
-- Dense preparation scans the full table and is stop-the-world. Call
-  `prepare_dense` at a controlled batch boundary when pauses matter.
-- The built-in SplitMix-style key mapping uses fixed constants and is not a
-  cryptographic or adversarially keyed hash. Prehash untrusted inputs with an
-  application-owned keyed hash.
-- Performance evidence currently covers one local Apple M4 Pro. Do not infer
-  x86-64 performance from those measurements.
+- Keys are `u64`; prehash untrusted input with an application-owned keyed hash.
+- The filter has false positives. Call `remove` only for a known-present key.
+- After a failed bounded insertion, discard or rebuild the filter when
+  `InsertStats::filter_usable` is false.
+- Dense preparation scans the full table and pauses insertion. Call
+  `prepare_dense` at a controlled batch boundary when latency matters.
+
+This is research software, not a concurrent production library.
 
 ## Build and verify
 
-Rust 1.92 or newer is supported.
+Rust 1.92 or newer is required.
 
 ```sh
 cargo fmt --check
@@ -97,20 +76,9 @@ cargo clippy --release --locked --all-targets -- -D warnings
 ```
 
 Run `cargo run --release --bin cavity-bench -- help` for the experiment CLI.
-The CLI refuses to overwrite existing CSV and latency sidecar files.
-`build --verify true` checks every seed, and `verify-samples` is a strict upper
-bound. Query runs insert even keys and probe odd keys, guaranteeing that every
-measured query key is absent. Churn and query rows also report `filter_usable`.
 
-## Source and artifact boundary
+## Citation and license
 
-This source distribution intentionally excludes raw datasets, compiled
-binaries, machine-identifying logs, generated paper files, and historical Git
-objects. See [PROVENANCE.md](PROVENANCE.md) for the source origin and baseline
-references. The checksum-bound research artifact is released separately.
-
-## License and citation
-
-The software is available under the [MIT License](LICENSE). Citation metadata
-is provided in [CITATION.cff](CITATION.cff); the arXiv identifier will be added
-after assignment.
+Citation metadata is in [CITATION.cff](CITATION.cff), and source provenance is
+documented in [PROVENANCE.md](PROVENANCE.md). The code is available under the
+[MIT License](LICENSE).
